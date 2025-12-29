@@ -34,15 +34,21 @@ router.get('/comments/:id', async (req, res) => {
 });
 
 // Route pour ajouter un commentaire
-router.post('/articles/:id/comments', async (req, res) => {
+router.post('/articles/:id/comments', authenticate, async (req, res) => {
   const { id } = req.params;
-  const { content, user_id } = req.body;
-  //const sql = 'INSERT INTO comments (content, user_id, article_id) VALUES (?, ?, ?)';
-  const sql = `INSERT INTO comments (user_id, article_id, content) VALUES (${user_id}, ${id}, '${content}')`;
-  //const sql = `SELECT * FROM comments WHERE user_id = ${user_id}`;
+  const { content } = req.body;
+  const user_id = req.user.id; // Utiliser l'ID de l'utilisateur authentifié
+
+  // Validation de l'entrée
+  if (!content || typeof content !== 'string' || content.trim().length === 0) {
+    return res.status(400).json({ error: 'Le contenu du commentaire est requis' });
+  }
+
+  // Requête préparée pour éviter l'injection SQL
+  const sql = 'INSERT INTO comments (user_id, article_id, content) VALUES (?, ?, ?)';
+
   try {
-    //const [results] = await req.db.execute(sql, [content, user_id, id]);
-    const [results] = await req.db.query(sql);
+    const [results] = await req.db.execute(sql, [user_id, id, content]);
     const newComment = {
       id: results.insertId,
       content,
@@ -56,11 +62,25 @@ router.post('/articles/:id/comments', async (req, res) => {
   }
 });
 
-// Route pour supprimer un commentaire (admin seulement)
-router.delete('/comments/:id', async (req, res) => {
+// Route pour supprimer un commentaire
+router.delete('/comments/:id', authenticate, async (req, res) => {
   const { id } = req.params;
-  const sql = 'DELETE FROM comments WHERE id = ?';
+
   try {
+    // Vérifier que le commentaire existe
+    const checkSql = 'SELECT * FROM comments WHERE id = ?';
+    const [comments] = await req.db.execute(checkSql, [id]);
+
+    if (comments.length === 0) {
+      return res.status(404).json({ error: 'Commentaire introuvable' });
+    }
+
+    // Vérifier que l'utilisateur est l'auteur ou un admin
+    if (comments[0].user_id !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Non autorisé à supprimer ce commentaire' });
+    }
+
+    const sql = 'DELETE FROM comments WHERE id = ?';
     await req.db.execute(sql, [id]);
     res.json({ message: 'Commentaire supprimé avec succès' });
   } catch (err) {

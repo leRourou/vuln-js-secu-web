@@ -16,16 +16,19 @@ router.get('/', async (req, res) => {
 
 // Route pour chercher un article par titre
 router.post('/search', async (req, res) => {
-  console.log(
-    'req.body:', req.body,
-  );
-
   const { title } = req.body;
-  const sql = `SELECT * FROM articles WHERE title LIKE '%${title}%'`;
-  console.log(sql);
+
+  // Validation de l'entrée
+  if (!title || typeof title !== 'string') {
+    return res.status(400).json({ error: 'Paramètre title invalide' });
+  }
+
+  // Requête préparée pour éviter l'injection SQL
+  const sql = 'SELECT * FROM articles WHERE title LIKE ?';
+  const searchPattern = `%${title}%`;
 
   try {
-    const [results] = await req.db.query(sql);
+    const [results] = await req.db.execute(sql, [searchPattern]);
     res.json(results);
   } catch (err) {
     console.error('Erreur lors de la recherche des articles :', err);
@@ -50,8 +53,9 @@ router.get('/:id', async (req, res) => {
 });
 
 // Route pour créer un nouvel article
-router.post('/', async (req, res) => {
-  const { title, content, author_id } = req.body;
+router.post('/', authenticate, async (req, res) => {
+  const { title, content } = req.body;
+  const author_id = req.user.id; // Utiliser l'ID de l'utilisateur authentifié
   const sql = 'INSERT INTO articles (title, content, author_id) VALUES (?, ?, ?)';
   try {
     const [results] = await req.db.execute(sql, [title, content, author_id]);
@@ -69,20 +73,32 @@ router.post('/', async (req, res) => {
 });
 
 // Route pour modifier un article
-router.put('/:id', async (req, res) => {
+router.put('/:id', authenticate, async (req, res) => {
   const { id } = req.params;
-  const { title, content, author_id } = req.body;
-  const sql = 'UPDATE articles SET title = ?, content = ?, author_id = ? WHERE id = ?';
+  const { title, content } = req.body;
+
   try {
-    const [results] = await req.db.execute(sql, [title, content, author_id, id]);
-    if (results.affectedRows === 0) {
+    // Vérifier que l'article existe et que l'utilisateur est autorisé
+    const checkSql = 'SELECT * FROM articles WHERE id = ?';
+    const [articles] = await req.db.execute(checkSql, [id]);
+
+    if (articles.length === 0) {
       return res.status(404).json({ error: 'Article introuvable' });
     }
+
+    // Vérifier que l'utilisateur est l'auteur ou un admin
+    if (articles[0].author_id !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Non autorisé à modifier cet article' });
+    }
+
+    const sql = 'UPDATE articles SET title = ?, content = ? WHERE id = ?';
+    const [results] = await req.db.execute(sql, [title, content, id]);
+
     const updatedArticle = {
       id,
       title,
       content,
-      author_id
+      author_id: articles[0].author_id
     };
     res.json({ message: 'Article modifié avec succès', article: updatedArticle });
   } catch (err) {
