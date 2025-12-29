@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcrypt');
 const { authenticate, authorizeAdmin } = require('../middlewares/authMiddleware');
+
+const SALT_ROUNDS = 10;
 
 // Route pour lister les utilisateurs (admin seulement)
 router.get('/', authenticate, authorizeAdmin, async (req, res) => {
@@ -70,11 +73,28 @@ router.put('/:id', authenticate, async (req, res) => {
     return res.status(403).json({ error: 'Accès non autorisé' });
   }
 
-  // Empêcher la modification du rôle par un utilisateur non-admin
-  // Seuls les admins peuvent modifier les rôles via une route dédiée
-  const sql = 'UPDATE users SET username = ?, email = ?, password = ? WHERE id = ?';
   try {
-    const [results] = await req.db.execute(sql, [username, email, password, id]);
+    // Construire la requête en fonction des champs fournis
+    let sql;
+    let params;
+
+    if (password) {
+      // Validation du mot de passe
+      if (password.length < 8) {
+        return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 8 caractères' });
+      }
+
+      // Hacher le nouveau mot de passe
+      const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+      sql = 'UPDATE users SET username = ?, email = ?, password = ? WHERE id = ?';
+      params = [username, email, hashedPassword, id];
+    } else {
+      // Ne pas modifier le mot de passe si non fourni
+      sql = 'UPDATE users SET username = ?, email = ? WHERE id = ?';
+      params = [username, email, id];
+    }
+
+    const [results] = await req.db.execute(sql, params);
     if (results.affectedRows === 0) {
       return res.status(404).json({ error: 'Utilisateur introuvable' });
     }
