@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useUser } from "../../context/UserContext";
 import axiosInstance from "../../services/axiosInstance";
+import { sanitizeHTML } from "../../utils/sanitize";
 
 type Article = {
   id: string;
@@ -276,7 +277,7 @@ const AdminArticlesPage = () => {
                   </div>
                   <h3 className="text-xl font-bold">{article.title}</h3>
                   <p dangerouslySetInnerHTML={{
-                    __html: `${article.content.substring(0, 100)}...`
+                    __html: sanitizeHTML(`${article.content.substring(0, 100)}...`)
                   }}></p>
                   <h4 className="text-lg font-semibold mt-4">
                     Commentaires ({article.comments?.length})

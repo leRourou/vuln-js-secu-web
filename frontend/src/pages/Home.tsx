@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axiosInstance from "../services/axiosInstance";
+import { sanitizeHTML } from "../utils/sanitize";
 
 const HomePage = () => {
   const [articles, setArticles] = useState([]);
@@ -59,7 +60,7 @@ const HomePage = () => {
             >
               <div className="card-body">
                 <h2 className="card-title">{article.title}</h2>
-                <p dangerouslySetInnerHTML={{ __html: `${article.content.substring(0, 100)}...` }}></p>
+                <p dangerouslySetInnerHTML={{ __html: sanitizeHTML(`${article.content.substring(0, 100)}...`) }}></p>
                 <div className="card-actions justify-end">
                   <Link to={`/article/${article.id}`} className="btn btn-primary">Lire</Link>
                 </div>

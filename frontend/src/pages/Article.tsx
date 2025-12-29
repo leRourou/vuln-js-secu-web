@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useUser } from "../context/UserContext";
 import axiosInstance from "../services/axiosInstance";
+import { sanitizeHTML } from "../utils/sanitize";
 
 type Article = {
   id: string;
@@ -106,7 +107,7 @@ const ArticlePage = () => {
           <p className="text-gray-500 text-sm mb-6">Par : {
             users.find((u) => Number(u.id) === Number(article.author_id))?.username || "Utilisateur inconnu"
           }</p>
-          <p className="text-lg article-content" dangerouslySetInnerHTML={{ __html: article.content }}></p>
+          <p className="text-lg article-content" dangerouslySetInnerHTML={{ __html: sanitizeHTML(article.content) }}></p>
         </div>
 
         <h2 className="text-2xl font-semibold mb-8">Commentaires</h2>
@@ -116,7 +117,7 @@ const ArticlePage = () => {
               <ul className="space-y-4">
                 {comments.map((comment) => (
                   <li key={comment.id} className="border rounded-lg p-4 bg-base-100 shadow-md">
-                    <p dangerouslySetInnerHTML={{ __html: comment.content }}></p>
+                    <p dangerouslySetInnerHTML={{ __html: sanitizeHTML(comment.content) }}></p>
                     <p className="text-sm text-gray-500 mt-2">
                       Par : {
                         users.find((u) => Number(u.id) === Number(comment.user_id))?.username || "Utilisateur inconnu"
